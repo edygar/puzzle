@@ -3,7 +3,27 @@
     <title>Vite Sandbox</title>
     <meta charset="UTF-8" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module" crossorigin src="/puzzle/assets/index-9a51676c.js"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            keyframes: {
+              "animate-pop": {
+                "0%": {
+                  opacity: 0,
+                  transform: "scale(0.5, 0.5)",
+                },
+                "100%": {
+                  opacity: 1,
+                  transform: "scale(1, 1)",
+                },
+              },
+            },
+          },
+        },
+      };
+    </script>
+    <script type="module" crossorigin src="/puzzle/assets/index-0d1178e4.js"></script>
   </head>
 
   <body class="m-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500">
