@@ -6,7 +6,7 @@ import { Game } from "./components/Game";
 export function App() {
   const navigate = useNavigate();
   const [state, setState] = createStore<{
-    file: FileList | null;
+    file: File | null;
     difficulty: number;
   }>({
     file: null,

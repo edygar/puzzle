@@ -16,13 +16,16 @@ export const LEVELS = {
 
 const Wrapper = classed.form("grid flex-1 items-center justify-center");
 
-export function Setup(p) {
+export function Setup(p: {
+  initialSetup: { file: File | null; difficulty: number };
+  onSubmit?: (data: FormData) => void;
+}) {
   const props = mergeProps({ initialSetup: { file: null, difficulty: 3 } }, p);
   const [level, setLevel] = createSignal(props.initialSetup.difficulty);
   const [submittable, setSubmittable] = createSignal(false);
 
-  function updateLevel(e) {
-    setLevel(e.target.value);
+  function updateLevel(e: Event & { target: HTMLSelectElement }) {
+    setLevel(parseInt(e.target.value, 10));
   }
 
   function buildFiles() {
@@ -43,12 +46,14 @@ export function Setup(p) {
   return (
     <Wrapper
       ref={checkInitialValidity}
-      onChange={(e) => {
-        if (e.target.form.checkValidity()) {
+      onChange={(
+        e: Event & { target: HTMLInputElement | HTMLSelectElement },
+      ) => {
+        if (e.target.form!.checkValidity()) {
           setSubmittable(true);
         }
       }}
-      onSubmit={(e) => {
+      onSubmit={(e: Event & { target: HTMLFormElement }) => {
         e.preventDefault();
         props.onSubmit?.(new FormData(e.target));
       }}
@@ -82,8 +87,8 @@ export function Setup(p) {
             accept="image/*"
             required
             label={(files) => (
-              <>
-                {Array.from(files, (file) => (
+              <For each={Array.from(files)}>
+                {(file) => (
                   <HStack gap={2} items="center">
                     <img
                       src={URL.createObjectURL(file)}
@@ -91,8 +96,8 @@ export function Setup(p) {
                     />
                     <span>"{file.name}"</span>
                   </HStack>
-                )).reduce((prev, curr) => [prev, ", ", curr])}
-              </>
+                )}
+              </For>
             )}
           />
           <Button class="mt-5" type="submit" disabled={!submittable()}>

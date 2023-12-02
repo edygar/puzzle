@@ -86,19 +86,25 @@ export const Game = (props: {
     };
   });
 
+  let debounce: ReturnType<typeof setTimeout>;
   const updateSide = () => {
-    updateGame(
-      "containerSide",
-      Math.min(container.clientWidth, container.clientHeight),
-    );
-    Promise.resolve().then(
-      () => container?.classList.add("animate-[animate-pop_1s]"),
-    );
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      const { width, height } =
+        container.parentElement!.getBoundingClientRect();
+      updateGame("containerSide", Math.min(width, height));
+      Promise.resolve().then(
+        () => container?.classList.add("animate-[animate-pop_1s]"),
+      );
+    }, 100);
   };
 
   onMount(() => {
     window.addEventListener("resize", updateSide);
+    screen.orientation.addEventListener("change", updateSide);
+
     onCleanup(() => {
+      screen.orientation.removeEventListener("change", updateSide);
       window.removeEventListener("resize", updateSide);
     });
   });
@@ -151,6 +157,7 @@ export const Game = (props: {
   }
 
   let animationFrame: number;
+  let confettiTimeout: ReturnType<typeof setTimeout>;
   createEffect(() => {
     if (!won()) return;
 
@@ -173,13 +180,14 @@ export const Game = (props: {
         animationFrame = requestAnimationFrame(frame);
       }
     }
-    frame();
+    confettiTimeout = setTimeout(frame, 500);
   });
 
   onCleanup(() => {
     cancelAnimationFrame(animationFrame);
     confetti.reset();
     clearInterval(interval);
+    clearTimeout(confettiTimeout);
   });
 
   const formatter = new Intl.DateTimeFormat("en", {
@@ -195,9 +203,7 @@ export const Game = (props: {
         }}
         src={props.image}
         hidden
-        onLoad={(e) => {
-          updateSide();
-        }}
+        onLoad={updateSide}
       />
       <Show
         when={img}
@@ -215,13 +221,14 @@ export const Game = (props: {
 
           <Button onClick={startSolving}>Solve</Button>
         </HStack>
-        <div class="flex flex-1 grid-cols-[minmax(auto,100%)] grid-rows-[minmax(auto,100%)] items-center justify-center">
+        <div class="flex flex-1 flex-col items-center justify-center overflow-hidden">
           <div
             ref={(el) => {
               container = el;
             }}
-            class="grid aspect-square max-w-full  flex-1 overflow-hidden"
+            class="grid aspect-square items-center justify-center overflow-hidden transition-[height]"
             style={{
+              height: `${gameState.containerSide}px`,
               "--bg": `url(${props.image})`,
               "grid-template-columns": `repeat(${
                 board().cols
