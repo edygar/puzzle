@@ -9,15 +9,36 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
-        name: "",
-        short_name: "Puzzle",
-        description: "A puzzle game",
         theme_color: "#6366f1",
         background_color: "#6366f1",
         display: "standalone",
-        scope: "/",
-        start_url: "/",
-        orientation: "portrait",
+        scope: "/puzzle",
+        start_url: "/puzzle",
+        name: "Picture Puzzle",
+        description: "Picture Puzzle Game",
+        short_name: "Picture Puzzle",
+        icons: [
+          {
+            src: "/puzzle/assets/icon-192x192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/puzzle/assets/icon-256x256.png",
+            sizes: "256x256",
+            type: "image/png",
+          },
+          {
+            src: "/puzzle/assets/icon-384x384.png",
+            sizes: "384x384",
+            type: "image/png",
+          },
+          {
+            src: "/puzzle/assets/icon-512x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
       },
     }),
   ],
