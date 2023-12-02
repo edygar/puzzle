@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes contentShow {
+  from {
+    @apply opacity-0 -translate-y-2;
+  }
+  to {
+    @apply opacity-100 translate-y-0;
+  }
+}
+@keyframes contentHide {
+  from {
+    @apply opacity-100 translate-y-0;
+  }
+  to {
+    @apply opacity-0 -translate-y-2;
+  }
+}
