@@ -16,32 +16,32 @@ export function App() {
   return (
     <Routes>
       <Route
-        path="/puzzle/setup"
+        path="/setup"
         component={() => (
           <Setup
             initialSetup={state}
             onSubmit={(data) => {
               setState(Object.fromEntries(data.entries()));
-              navigate("/puzzle/game");
+              navigate("/game");
             }}
           />
         )}
       />
       {state.file && (
         <Route
-          path="/puzzle/game"
+          path="/game"
           component={() => (
             <Game
               tiles={state.difficulty ** 2}
               image={URL.createObjectURL(state.file!)}
               onReset={() => {
-                navigate("/puzzle/setup");
+                navigate("/setup");
               }}
             />
           )}
         />
       )}
-      <Navigate href="/puzzle/setup" />
+      <Navigate href="/setup" />
     </Routes>
   );
 }
