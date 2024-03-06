@@ -3,16 +3,29 @@ import {
   createMemo,
   onCleanup,
   Show,
-  Index,
   createEffect,
+  For,
 } from "solid-js";
+import { TransitionGroup } from "solid-transition-group";
 import { createStore } from "solid-js/store";
 import { Button } from "./Button";
 import { Title } from "./Title";
 import { HStack, VStack } from "./VStack";
 import confetti from "canvas-confetti";
 
-export const Game = (props: {
+const swap = <T,>(array: Array<T>, a: number, b: number) => {
+  const temp = array[a];
+  array[a] = array[b];
+  array[b] = temp;
+  return array;
+};
+
+const coordinates = (index: number, cols: number) => [
+  index % cols,
+  Math.floor(index / cols),
+];
+
+export const SlideGame = (props: {
   tiles?: number;
   image: string;
   onReset: VoidFunction;
@@ -29,20 +42,23 @@ export const Game = (props: {
     containerSide: number;
     start: Date;
     current: Date;
+    emptySlot: number;
   }>({
     tiles: [],
     containerSide: 0,
     start: new Date(),
     current: new Date(),
+    emptySlot: 0,
   });
 
   createEffect(() => {
-    updateGame(
-      "tiles",
-      Array.from({ length: board().rows * board().cols }, () =>
-        Math.floor(Math.random() * 4),
-      ),
-    );
+    const tiles = Array.from(
+      { length: board().rows * board().cols },
+      (_, index) => index,
+    ).sort(() => Math.random() - 0.5);
+    updateGame("tiles", tiles);
+
+    updateGame("emptySlot", tiles.length - 1);
   });
 
   const timer = setInterval(() => updateGame("current", new Date()), 1000);
@@ -57,7 +73,7 @@ export const Game = (props: {
   let img: HTMLImageElement | null = null;
 
   const won = createMemo(() =>
-    gameState.tiles.every((rotations) => Math.abs(rotations) % 4 === 0),
+    gameState.tiles.every((tile, position) => tile === position),
   );
 
   const sizes = createMemo(() => {
@@ -109,51 +125,48 @@ export const Game = (props: {
     });
   });
 
-  function getQuadrantStyle(rotations: number, index: number) {
-    const x = index % board().cols;
-    const y = Math.floor(index / board().rows);
+  function getTileStyle(currentPlacement: number) {
+    const [slotX, slotY] = coordinates(currentPlacement, board().cols);
     const { bgWidth, bgHeight, offsetX, offsetY } = sizes();
 
     return {
       "background-image": "var(--bg)",
       "background-size": `${bgWidth}px ${bgHeight}px`,
       "background-position": `left ${
-        x * -(gameState.containerSide / board().cols) - offsetX
+        slotX * -(gameState.containerSide / board().cols) - offsetX
       }px top ${
-        y * -Math.floor(gameState.containerSide / board().rows) - offsetY
+        slotY * -Math.floor(gameState.containerSide / board().rows) - offsetY
       }px`,
-      transform: `${
-        won() ? "" : "scale(0.75)"
-      } rotate(calc(90deg * ${rotations}))`,
       "-webkit-tap-highlight-color": "transparent",
     };
   }
 
-  function rotate(index: number, direction: number) {
-    updateGame("tiles", index, (i) => i + direction);
+  function move(index: number) {
+    const emptySlotIndex = gameState.tiles.indexOf(gameState.emptySlot);
+    const [targetX, targetY] = coordinates(emptySlotIndex, board().cols);
+    const [originX, originY] = coordinates(index, board().cols);
+
+    switch (true) {
+      case targetX === originX:
+        if (Math.abs(targetY - originY) !== 1) {
+          return;
+        }
+        break;
+      case targetY === originY:
+        if (Math.abs(targetX - originX) !== 1) {
+          return;
+        }
+        break;
+      default:
+        return true;
+    }
+
+    updateGame("tiles", swap(gameState.tiles.slice(0), emptySlotIndex, index));
   }
 
   let interval: ReturnType<typeof setInterval>;
   function startSolving() {
-    let index = 0;
-    clearInterval(interval);
-    interval = setInterval(
-      () => {
-        while (Math.abs(gameState.tiles[index]) % 4 === 0) {
-          index = (index + 1) % gameState.tiles.length;
-        }
-        const missing = gameState.tiles[index] % 4;
-        rotate(index, Math.abs(missing) > 2 ? 1 : -1);
-
-        if (won()) {
-          clearInterval(interval);
-        }
-      },
-      Math.min(
-        1000,
-        3000 / gameState.tiles.reduce((a, b) => a + Math.abs(b % 4), 0),
-      ),
-    );
+    alert("Not ready yet");
   }
 
   let animationFrame: number;
@@ -235,28 +248,31 @@ export const Game = (props: {
               }, minmax(0, 1fr))`,
             }}
           >
-            <Index each={gameState.tiles}>
-              {(rotations, index) => (
-                <button
-                  disabled={!!won()}
-                  type="button"
-                  class="box-content aspect-square appearance-none border bg-no-repeat transition-[transform,shadow] duration-300"
-                  classList={{
-                    "border-transparent": won(),
-                    "shadow-xl": !won(),
-                  }}
-                  style={getQuadrantStyle(rotations(), index)}
-                  {...{
-                    ["ontouchstart" in window ? "onTouchStart" : "onClick"]: (
-                      e: PointerEvent,
-                    ) => {
-                      e.preventDefault();
-                      rotate(index, e.shiftKey ? -1 : 1);
-                    },
-                  }}
-                />
-              )}
-            </Index>
+            <TransitionGroup name="slide">
+              <For each={gameState.tiles}>
+                {(tile, index) => (
+                  <button
+                    disabled={!!won()}
+                    type="button"
+                    class="box-content aspect-square appearance-none border bg-no-repeat transition-[transform,shadow] duration-300"
+                    classList={{
+                      "border-transparent": won(),
+                      "shadow-xl": !won(),
+                      "opacity-0": tile === gameState.emptySlot,
+                    }}
+                    style={getTileStyle(tile)}
+                    {...{
+                      ["ontouchstart" in window ? "onTouchStart" : "onClick"]: (
+                        e: PointerEvent,
+                      ) => {
+                        e.preventDefault();
+                        move(index());
+                      },
+                    }}
+                  />
+                )}
+              </For>
+            </TransitionGroup>
           </div>
         </div>
       </Show>

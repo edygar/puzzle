@@ -1,16 +1,17 @@
 import { createStore } from "solid-js/store";
 import { Setup } from "./components/Setup";
 import { Navigate, Route, Routes, useNavigate } from "@solidjs/router";
-import { Game } from "./components/Game";
+import { RotateGame } from "./components/RotateGame";
+import { GameSetup } from "./types";
+import { SlideGame } from "./components/SlideGame";
 
 export function App() {
   const navigate = useNavigate();
-  const [state, setState] = createStore<{
-    file: File | null;
-    difficulty: number;
-  }>({
+
+  const [state, setState] = createStore<GameSetup>({
+    mode: "rotate",
     file: null,
-    difficulty: 3,
+    level: 3,
   });
 
   return (
@@ -21,25 +22,42 @@ export function App() {
           <Setup
             initialSetup={state}
             onSubmit={(data) => {
-              setState(Object.fromEntries(data.entries()));
-              navigate("/game");
+              setState(data);
+              navigate(`/${data.mode}`);
             }}
           />
         )}
       />
       {state.file && (
-        <Route
-          path="/game"
-          component={() => (
-            <Game
-              tiles={state.difficulty ** 2}
-              image={URL.createObjectURL(state.file!)}
-              onReset={() => {
-                navigate("/setup");
-              }}
-            />
-          )}
-        />
+        <>
+          <Route
+            path="/rotate"
+            component={() => (
+              <RotateGame
+                tiles={state.level ** 2}
+                image={URL.createObjectURL(state.file!)}
+                onReset={() => {
+                  navigate("/setup");
+                }}
+              />
+            )}
+          />
+
+          <Route
+            path="/slide"
+            component={() => {
+              return (
+                <SlideGame
+                  tiles={state.level ** 2}
+                  image={URL.createObjectURL(state.file!)}
+                  onReset={() => {
+                    navigate("/setup");
+                  }}
+                />
+              );
+            }}
+          />
+        </>
       )}
       <Navigate href="/setup" />
     </Routes>

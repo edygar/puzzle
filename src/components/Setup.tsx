@@ -6,6 +6,8 @@ import { HStack, VStack } from "./VStack";
 import { FileInput } from "./FileInput";
 import { classed } from "@tw-classed/solid";
 import { Button } from "./Button";
+import { createStore } from "solid-js/store";
+import { GameSetup } from "../types";
 
 export const LEVELS = {
   Easy: 2,
@@ -17,15 +19,22 @@ export const LEVELS = {
 const Wrapper = classed.form("grid flex-1 items-center justify-center");
 
 export function Setup(p: {
-  initialSetup: { file: File | null; difficulty: number };
-  onSubmit?: (data: FormData) => void;
+  initialSetup: GameSetup;
+  onSubmit?: (data: GameSetup) => void;
 }) {
-  const props = mergeProps({ initialSetup: { file: null, difficulty: 3 } }, p);
-  const [level, setLevel] = createSignal(props.initialSetup.difficulty);
+  const props = mergeProps(
+    { initialSetup: { file: null, level: 3, mode: "rotate" } },
+    p,
+  );
+  const [gameSetup, updateSetup] = createStore<GameSetup>({
+    file: props.initialSetup.file,
+    level: props.initialSetup.level,
+    mode: props.initialSetup.mode,
+  });
   const [submittable, setSubmittable] = createSignal(false);
 
   function updateLevel(e: Event & { target: HTMLSelectElement }) {
-    setLevel(parseInt(e.target.value, 10));
+    updateSetup("level", parseInt(e.target.value, 10));
   }
 
   function buildFiles() {
@@ -49,20 +58,33 @@ export function Setup(p: {
       onChange={(
         e: Event & { target: HTMLInputElement | HTMLSelectElement },
       ) => {
-        if (e.target.form!.checkValidity()) {
+        if (e.target.form?.checkValidity()) {
           setSubmittable(true);
         }
       }}
       onSubmit={(e: Event & { target: HTMLFormElement }) => {
         e.preventDefault();
-        props.onSubmit?.(new FormData(e.target));
+        props.onSubmit?.({ ...gameSetup });
       }}
     >
       <VStack gap={2}>
-        <GridIcon tiles={level() ** 2} />
-        <Title level="h1">It's Picture Puzzle Time</Title>
+        <GridIcon tiles={gameSetup.level ** 2} />
+        <Title level="1">It's Picture Puzzle Time</Title>
 
         <VStack gap={3} items="center">
+          <Select
+            onChange={(e) => updateSetup("mode", e.target.value)}
+            name="mode"
+            required
+            placeholder="Mode"
+          >
+            <option selected={gameSetup.mode === "rotate"} value="rotate">
+              Rotate
+            </option>
+            <option selected={gameSetup.mode === "slide"} value="slide">
+              Slide
+            </option>
+          </Select>
           <Select
             onChange={updateLevel}
             name="difficulty"
@@ -73,7 +95,7 @@ export function Setup(p: {
               {([label, level]) => (
                 <option
                   value={level}
-                  selected={level == props.initialSetup.difficulty}
+                  selected={level === props.initialSetup.level}
                 >
                   Difficulty: {label} ({level}x{level})
                 </option>
@@ -85,12 +107,16 @@ export function Setup(p: {
             defaultValue={buildFiles()}
             name="file"
             accept="image/*"
+            onChange={(e) => {
+              e.target.files && updateSetup("file", e.target.files[0]);
+            }}
             required
             label={(files) => (
               <For each={Array.from(files)}>
                 {(file) => (
                   <HStack gap={2} items="center">
                     <img
+                      alt="Preview of the game theme"
                       src={URL.createObjectURL(file)}
                       class="h-[1em] object-scale-down"
                     />
