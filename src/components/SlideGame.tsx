@@ -5,6 +5,7 @@ import {
   Show,
   createEffect,
   For,
+  untrack,
 } from "solid-js";
 import { TransitionGroup } from "solid-transition-group";
 import { createStore } from "solid-js/store";
@@ -12,12 +13,92 @@ import { Button } from "./Button";
 import { Title } from "./Title";
 import { HStack, VStack } from "./VStack";
 import confetti from "canvas-confetti";
+import TinyQueue from "tinyqueue";
 
-const swap = <T,>(array: Array<T>, a: number, b: number) => {
-  const temp = array[a];
-  array[a] = array[b];
-  array[b] = temp;
-  return array;
+const swap = <T,>(tiles: Array<T>, a: number, b: number) => {
+  [tiles[a], tiles[b]] = [tiles[b], tiles[a]];
+  return tiles;
+};
+
+const possibleMoves = (index: number, cols: number) => {
+  const [x, y] = coordinates(index, cols);
+  const moves = [];
+  if (x > 0) moves.push(index - 1);
+  if (y > 0) moves.push(index - cols);
+  if (x < cols - 1) moves.push(index + 1);
+  if (y < cols - 1) moves.push(index + cols);
+  return moves;
+};
+const hash = (tiles: number[]) => tiles.join(",");
+const misplaced = (tiles: number[]) =>
+  tiles.reduce((acc, tile, index) => {
+    if (tile === index) {
+      return acc;
+    }
+    return acc + 1;
+  }, 0);
+
+interface TileNode {
+  tiles: number[];
+  cost: number; // This is 'f' = 'g' + 'h' where 'g' is the path cost and 'h' is the heuristic cost
+  emptySlot: number;
+  prev?: TileNode;
+}
+
+const solve = (initialTiles: number[], cols: number): number[] | null => {
+  const pq = new TinyQueue<TileNode>([], (a, b) => a.cost - b.cost);
+  const visited = new Set<string>();
+  const empty = cols * cols - 1;
+  const startNode: TileNode = {
+    tiles: initialTiles,
+    cost: misplaced(initialTiles), // Assuming 'misplaced' is your heuristic (h). You might need to adjust this.
+    emptySlot: initialTiles.indexOf(empty),
+  };
+
+  pq.push(startNode);
+
+  while (pq.length) {
+    const current = pq.pop()!;
+    const currentHash = hash(current.tiles);
+
+    if (misplaced(current.tiles) === 0) {
+      return reconstructPath(current);
+    }
+
+    visited.add(currentHash);
+
+    for (const move of possibleMoves(current.emptySlot, cols)) {
+      const newTiles = swap(current.tiles.slice(), current.emptySlot, move);
+      const newHash = hash(newTiles);
+
+      if (visited.has(newHash)) {
+        continue;
+      }
+
+      const g = current.tiles.length - misplaced(current.tiles);
+      const h = misplaced(newTiles);
+      const f = g + h;
+
+      pq.push({
+        tiles: newTiles,
+        cost: f,
+        emptySlot: move,
+        prev: current,
+      });
+    }
+  }
+
+  return null;
+};
+
+const reconstructPath = (node: TileNode): number[] => {
+  let current = node;
+  const path = [];
+  while (current.prev) {
+    path.unshift(current.emptySlot); // This might need to be adjusted based on how you want to record the path
+    current = current.prev;
+  }
+  return path;
 };
 
 const coordinates = (index: number, cols: number) => [
@@ -43,21 +124,28 @@ export const SlideGame = (props: {
     start: Date;
     current: Date;
     emptySlot: number;
+    solving: boolean;
+    solutionLength: number | null;
   }>({
     tiles: [],
     containerSide: 0,
     start: new Date(),
     current: new Date(),
     emptySlot: 0,
+    solving: false,
+    solutionLength: null,
   });
 
   createEffect(() => {
-    const tiles = Array.from(
-      { length: board().rows * board().cols },
-      (_, index) => index,
-    ).sort(() => Math.random() - 0.5);
-    updateGame("tiles", tiles);
+    let tiles: number[];
 
+    do {
+      tiles = Array.from(
+        { length: board().rows * board().cols },
+        (_, index) => index,
+      ).sort(() => Math.random() - 0.5);
+    } while (misplaced(tiles) < 2 || !solve(tiles, board().cols));
+    updateGame("tiles", tiles);
     updateGame("emptySlot", tiles.length - 1);
   });
 
@@ -72,9 +160,7 @@ export const SlideGame = (props: {
   let container: HTMLDivElement;
   let img: HTMLImageElement | null = null;
 
-  const won = createMemo(() =>
-    gameState.tiles.every((tile, position) => tile === position),
-  );
+  const won = createMemo(() => misplaced(gameState.tiles) === 0);
 
   const sizes = createMemo(() => {
     const { naturalWidth, naturalHeight } = img || {
@@ -165,9 +251,34 @@ export const SlideGame = (props: {
   }
 
   let interval: ReturnType<typeof setInterval>;
-  function startSolving() {
-    alert("Not ready yet");
-  }
+  createEffect(() => {
+    if (!gameState.solving) {
+      clearInterval(interval);
+      return;
+    }
+    untrack(() => {
+      const solution = solve(gameState.tiles, board().cols)!;
+
+      updateGame("solutionLength", solution.length);
+      clearInterval(interval);
+      interval = setInterval(
+        () => {
+          if (solution.length) {
+            move(solution.shift()!);
+          }
+
+          updateGame("solutionLength", solution.length);
+          if (won()) {
+            clearInterval(interval);
+          }
+        },
+        Math.min(
+          1000,
+          3000 / gameState.tiles.reduce((a, b) => a + Math.abs(b % 4), 0),
+        ),
+      );
+    });
+  });
 
   let animationFrame: number;
   let confettiTimeout: ReturnType<typeof setTimeout>;
@@ -232,7 +343,13 @@ export const SlideGame = (props: {
             )}
           </Title>
 
-          <Button onClick={startSolving}>Solve</Button>
+          <Button
+            onClick={() => updateGame("solving", (isSolving) => !isSolving)}
+          >
+            {gameState.solving
+              ? `Solving... (${gameState.solutionLength} movements to go)`
+              : "Solve"}
+          </Button>
         </HStack>
         <div class="flex flex-1 flex-col items-center justify-center overflow-hidden">
           <div
