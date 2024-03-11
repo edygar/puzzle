@@ -9,102 +9,18 @@ import {
 } from "solid-js";
 import { TransitionGroup } from "solid-transition-group";
 import { createStore } from "solid-js/store";
-import { Button } from "./Button";
-import { Title } from "./Title";
-import { HStack, VStack } from "./VStack";
+import { Button } from "../Button";
+import { Title } from "../Title";
+import { HStack, VStack } from "../VStack";
 import confetti from "canvas-confetti";
-import TinyQueue from "tinyqueue";
-
-const swap = <T,>(tiles: Array<T>, a: number, b: number) => {
-  [tiles[a], tiles[b]] = [tiles[b], tiles[a]];
-  return tiles;
-};
-
-const possibleMoves = (index: number, cols: number) => {
-  const [x, y] = coordinates(index, cols);
-  const moves = [];
-  if (x > 0) moves.push(index - 1);
-  if (y > 0) moves.push(index - cols);
-  if (x < cols - 1) moves.push(index + 1);
-  if (y < cols - 1) moves.push(index + cols);
-  return moves;
-};
-const hash = (tiles: number[]) => tiles.join(",");
-const misplaced = (tiles: number[]) =>
-  tiles.reduce((acc, tile, index) => {
-    if (tile === index) {
-      return acc;
-    }
-    return acc + 1;
-  }, 0);
-
-interface TileNode {
-  tiles: number[];
-  cost: number; // This is 'f' = 'g' + 'h' where 'g' is the path cost and 'h' is the heuristic cost
-  emptySlot: number;
-  prev?: TileNode;
-}
-
-const solve = (initialTiles: number[], cols: number): number[] | null => {
-  const pq = new TinyQueue<TileNode>([], (a, b) => a.cost - b.cost);
-  const visited = new Set<string>();
-  const empty = cols * cols - 1;
-  const startNode: TileNode = {
-    tiles: initialTiles,
-    cost: misplaced(initialTiles), // Assuming 'misplaced' is your heuristic (h). You might need to adjust this.
-    emptySlot: initialTiles.indexOf(empty),
-  };
-
-  pq.push(startNode);
-
-  while (pq.length) {
-    const current = pq.pop()!;
-    const currentHash = hash(current.tiles);
-
-    if (misplaced(current.tiles) === 0) {
-      return reconstructPath(current);
-    }
-
-    visited.add(currentHash);
-
-    for (const move of possibleMoves(current.emptySlot, cols)) {
-      const newTiles = swap(current.tiles.slice(), current.emptySlot, move);
-      const newHash = hash(newTiles);
-
-      if (visited.has(newHash)) {
-        continue;
-      }
-
-      const g = current.tiles.length - misplaced(current.tiles);
-      const h = misplaced(newTiles);
-      const f = g + h;
-
-      pq.push({
-        tiles: newTiles,
-        cost: f,
-        emptySlot: move,
-        prev: current,
-      });
-    }
-  }
-
-  return null;
-};
-
-const reconstructPath = (node: TileNode): number[] => {
-  let current = node;
-  const path = [];
-  while (current.prev) {
-    path.unshift(current.emptySlot); // This might need to be adjusted based on how you want to record the path
-    current = current.prev;
-  }
-  return path;
-};
-
-const coordinates = (index: number, cols: number) => [
-  index % cols,
-  Math.floor(index / cols),
-];
+import {
+  coordinates,
+  isSolvable,
+  misplaced,
+  possibleMoves,
+  solve,
+  swap,
+} from "./engine";
 
 export const SlideGame = (props: {
   tiles?: number;
@@ -144,7 +60,8 @@ export const SlideGame = (props: {
         { length: board().rows * board().cols },
         (_, index) => index,
       ).sort(() => Math.random() - 0.5);
-    } while (misplaced(tiles) < 2 || !solve(tiles, board().cols));
+    } while (misplaced(tiles) < tiles.length || !isSolvable(tiles));
+
     updateGame("tiles", tiles);
     updateGame("emptySlot", tiles.length - 1);
   });
@@ -257,8 +174,11 @@ export const SlideGame = (props: {
       return;
     }
     untrack(() => {
-      const solution = solve(gameState.tiles, board().cols)!;
-
+      const solution = solve(gameState.tiles);
+      if (!solution) {
+        updateGame("solving", false);
+        return;
+      }
       updateGame("solutionLength", solution.length);
       clearInterval(interval);
       interval = setInterval(
@@ -268,8 +188,8 @@ export const SlideGame = (props: {
           }
 
           updateGame("solutionLength", solution.length);
-          if (won()) {
-            clearInterval(interval);
+          if (!solution.length) {
+            updateGame("solving", false);
           }
         },
         Math.min(
@@ -386,7 +306,7 @@ export const SlideGame = (props: {
                         move(index());
                       },
                     }}
-                  />
+                   />
                 )}
               </For>
             </TransitionGroup>
