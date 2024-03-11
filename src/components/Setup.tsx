@@ -1,4 +1,4 @@
-import { For, createSignal, mergeProps } from "solid-js";
+import { For, createSignal, mergeProps, Show } from "solid-js";
 import { Title } from "./Title";
 import { GridIcon } from "./GridIcon";
 import { Select } from "./Select";
@@ -10,11 +10,18 @@ import { createStore } from "solid-js/store";
 import { GameSetup } from "../types";
 
 export const LEVELS = {
-  Easy: 2,
-  Regular: 3,
-  Hard: 5,
-  Expert: 10,
-};
+  slide: {
+    Easy: 2,
+    Regular: 3,
+    Hard: 4,
+  },
+  rotate: {
+    Easy: 2,
+    Regular: 3,
+    Hard: 5,
+    Expert: 10,
+  },
+} as const;
 
 const Wrapper = classed.form("grid flex-1 items-center justify-center");
 
@@ -73,7 +80,13 @@ export function Setup(p: {
 
         <VStack gap={3} items="center">
           <Select
-            onChange={(e) => updateSetup("mode", e.target.value)}
+            onChange={(e) => {
+              updateSetup("mode", e.target.value as "rotate" | "slide");
+              updateSetup(
+                "level",
+                LEVELS[e.target.value as "rotate" | "slide"].Regular,
+              );
+            }}
             name="mode"
             required
             placeholder="Mode"
@@ -85,23 +98,24 @@ export function Setup(p: {
               Slide
             </option>
           </Select>
-          <Select
-            onChange={updateLevel}
-            name="difficulty"
-            required
-            placeholder="Difficulty level"
-          >
-            <For each={Object.entries(LEVELS)}>
-              {([label, level]) => (
-                <option
-                  value={level}
-                  selected={level === props.initialSetup.level}
-                >
-                  Difficulty: {label} ({level}x{level})
-                </option>
-              )}
-            </For>
-          </Select>
+          <Show when={gameSetup.mode} keyed>
+            {(mode) => (
+              <Select
+                onChange={updateLevel}
+                name="level"
+                required
+                placeholder="Difficulty level"
+              >
+                <For each={Object.entries(LEVELS[mode])}>
+                  {([label, level]) => (
+                    <option value={level} selected={level === gameSetup.level}>
+                      Difficulty: {label} ({level}x{level})
+                    </option>
+                  )}
+                </For>
+              </Select>
+            )}
+          </Show>
 
           <FileInput
             defaultValue={buildFiles()}
