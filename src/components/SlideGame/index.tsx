@@ -7,20 +7,14 @@ import {
   For,
   untrack,
 } from "solid-js";
-import { TransitionGroup } from "solid-transition-group";
 import { createStore } from "solid-js/store";
 import { Button } from "../Button";
 import { Title } from "../Title";
 import { HStack, VStack } from "../VStack";
 import confetti from "canvas-confetti";
-import {
-  coordinates,
-  isSolvable,
-  misplaced,
-  possibleMoves,
-  solve,
-  swap,
-} from "./engine";
+import { coordinates, isSolvable, misplaced, solve, swap } from "./engine";
+
+document.startViewTransition = document.startViewTransition || ((fn) => fn());
 
 export const SlideGame = (props: {
   tiles?: number;
@@ -133,6 +127,7 @@ export const SlideGame = (props: {
     const { bgWidth, bgHeight, offsetX, offsetY } = sizes();
 
     return {
+      "view-transition-name": "tile-" + currentPlacement,
       "background-image": "var(--bg)",
       "background-size": `${bgWidth}px ${bgHeight}px`,
       "background-position": `left ${
@@ -164,7 +159,12 @@ export const SlideGame = (props: {
         return true;
     }
 
-    updateGame("tiles", swap(gameState.tiles.slice(0), emptySlotIndex, index));
+    document.startViewTransition(() => {
+      updateGame(
+        "tiles",
+        swap(gameState.tiles.slice(0), emptySlotIndex, index),
+      );
+    });
   }
 
   let interval: ReturnType<typeof setInterval>;
@@ -285,31 +285,29 @@ export const SlideGame = (props: {
               }, minmax(0, 1fr))`,
             }}
           >
-            <TransitionGroup name="slide">
-              <For each={gameState.tiles}>
-                {(tile, index) => (
-                  <button
-                    disabled={!!won()}
-                    type="button"
-                    class="box-content aspect-square appearance-none border bg-no-repeat transition-[transform,shadow] duration-300"
-                    classList={{
-                      "border-transparent": won(),
-                      "shadow-xl": !won(),
-                      "opacity-0": tile === gameState.emptySlot,
-                    }}
-                    style={getTileStyle(tile)}
-                    {...{
-                      ["ontouchstart" in window ? "onTouchStart" : "onClick"]: (
-                        e: PointerEvent,
-                      ) => {
-                        e.preventDefault();
-                        move(index());
-                      },
-                    }}
-                   />
-                )}
-              </For>
-            </TransitionGroup>
+            <For each={gameState.tiles}>
+              {(tile, index) => (
+                <button
+                  disabled={!!won()}
+                  type="button"
+                  class="box-content aspect-square appearance-none border bg-no-repeat transition-[transform,shadow] duration-300"
+                  classList={{
+                    "border-transparent": won(),
+                    "shadow-xl": !won(),
+                    "opacity-0": tile === gameState.emptySlot,
+                  }}
+                  style={getTileStyle(tile)}
+                  {...{
+                    ["ontouchstart" in window ? "onTouchStart" : "onClick"]: (
+                      e: PointerEvent,
+                    ) => {
+                      e.preventDefault();
+                      move(index());
+                    },
+                  }}
+                />
+              )}
+            </For>
           </div>
         </div>
       </Show>

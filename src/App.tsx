@@ -1,11 +1,25 @@
 import { createStore } from "solid-js/store";
 import { Setup } from "./components/Setup";
-import { Navigate, Route, Routes, useNavigate } from "@solidjs/router";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useNavigate,
+  useBeforeLeave,
+} from "@solidjs/router";
 import { RotateGame } from "./components/RotateGame";
 import { GameSetup } from "./types";
 import { SlideGame } from "./components/SlideGame";
 
 export function App() {
+  useBeforeLeave((e) => {
+    if (document.startViewTransition) {
+      e.preventDefault();
+      document.startViewTransition(() => {
+        e.retry(true);
+      });
+    }
+  });
   const navigate = useNavigate();
 
   const [state, setState] = createStore<GameSetup>({

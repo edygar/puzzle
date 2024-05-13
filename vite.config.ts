@@ -24,18 +24,13 @@ export default defineConfig({
         short_name: "Picture Puzzle",
         icons: [
           {
-            src: "/puzzle/assets/icon-192x192.png",
-            sizes: "192x192",
+            src: "/puzzle/assets/icon-196x196.png",
+            sizes: "196x196",
             type: "image/png",
           },
           {
             src: "/puzzle/assets/icon-256x256.png",
             sizes: "256x256",
-            type: "image/png",
-          },
-          {
-            src: "/puzzle/assets/icon-384x384.png",
-            sizes: "384x384",
             type: "image/png",
           },
           {
